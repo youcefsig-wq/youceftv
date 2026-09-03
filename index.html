@@ -1,401 +1,5 @@
-<!DOCTYPE html>
-<html lang="fr" dir="ltr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YOUCEF TV - PRO</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
-    <style>
-        :root {
-            --primary-color: #3b82f6;
-            --primary-dark: #1d4ed8;
-            --primary-glow: rgba(59, 130, 246, 0.4);
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; height: 100vh; background-color: #080c14; color: #fff; transition: all 0.3s ease; }
-        
-        :focus { outline: 2px solid var(--primary-color) !important; outline-offset: 3px; border-radius: 8px; }
-
-        /* شاشة الحماية */
-        #auth-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url('https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1470&auto=format&fit=crop'); background-size: cover; z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        #auth-screen h2 { font-size: 14px; margin-bottom: 15px; letter-spacing: 1px; }
-        #auth-screen input { padding: 10px; border-radius: 6px; border: 1px solid var(--primary-color); background: rgba(0,0,0,0.5); color: #fff; margin-bottom: 12px; width: 180px; text-align: center; font-size: 13px; }
-        #auth-screen button { padding: 8px 25px; background: var(--primary-color); border: none; color: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
-        .glass-button { margin-top: 20px; padding: 8px 15px; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 8px; font-size: 11px; }
-
-        /* Splash Screen */
-        .splash-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://img.magnific.com/premium-photo/modern-living-room-with-flatscreen-tv-couch-keyboard-coffee-table_681298-7939.jpg?semt=ais_hybrid&w=740&q=80') center/cover; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease, visibility 0.8s; }
-        .splash-screen.fade-out { opacity: 0; visibility: hidden; pointer-events: none; }
-        .splash-logo { width: 220px; margin-bottom: 30px; filter: drop-shadow(0 0 15px var(--primary-glow)); }
-        .splash-loader { width: 32px; height: 32px; border: 3px solid rgba(255, 255, 255, 0.2); border-top: 3px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* التصميم الرئيسي للتطبيق */
-        .app-container { display: flex; flex-direction: column; width: 100vw; height: 100vh; background: #080c14; overflow: hidden; }
-
-        /* القائمة العلوية الأفقية Main Header Navigation */
-        .main-sidebar {
-            width: 100%; height: 65px;
-            background: rgba(13, 19, 33, 0.95);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            display: flex; flex-direction: row; align-items: center; justify-content: space-between;
-            padding: 0 20px; z-index: 100; backdrop-filter: blur(15px);
-        }
-
-        .sidebar-brand { display: flex; align-items: center; justify-content: center; margin-bottom: 0; padding: 0; }
-        .sidebar-brand img { width: 100px; filter: drop-shadow(0 0 10px var(--primary-glow)); }
-
-        .nav-menu { display: flex; flex-direction: row; gap: 12px; flex: unset; }
-        .nav-item {
-            display: flex; align-items: center; gap: 10px;
-            padding: 8px 18px; border-radius: 8px; color: #94a3b8;
-            font-size: 12px; font-weight: 600; cursor: pointer;
-            transition: all 0.25s ease; border: 1px solid transparent;
-        }
-        .nav-item i { font-size: 16px; width: auto; text-align: center; }
-        .nav-item:hover, .nav-item:focus { background: rgba(255, 255, 255, 0.06); color: #fff; }
-        .nav-item.active {
-            background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-            color: #fff; border-color: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 4px 15px var(--primary-glow);
-        }
-
-        /* شاشة المحتوى */
-        .content-area { flex: 1; height: calc(100vh - 65px); position: relative; overflow: hidden; }
-        .view-section { display: none; width: 100%; height: 100%; padding: 15px; gap: 10px; }
-        .view-section.active-view { display: flex; }
-
-        .sub-sidebar { width: 180px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; display: flex; flex-direction: column; padding: 12px 8px; overflow-y: auto; }
-        .category-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; margin-bottom: 4px; border-radius: 6px; cursor: pointer; font-size: 12px; color: #cbd5e1; transition: 0.2s; }
-        .category-row:hover, .category-row:focus { background: rgba(255, 255, 255, 0.06); color: #fff; }
-        .category-row.active { background: var(--primary-glow); border: 1px solid var(--primary-color); color: #fff; font-weight: bold; }
-        .category-row.fav-cat { color: #f59e0b; font-weight: bold; }
-
-        .channels-panel { width: 220px; background: rgba(10, 14, 23, 0.5); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; display: flex; flex-direction: column; padding: 12px; }
-        .search-box { padding: 9px; margin-bottom: 10px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); color: #fff; border-radius: 8px; width: 100%; outline: none; font-size: 12px; }
-        .channels-list { flex: 1; overflow-y: auto; }
-        
-        .channel-card { display: flex; align-items: center; justify-content: space-between; padding: 9px; margin-bottom: 4px; cursor: pointer; border-radius: 6px; font-size: 11px; background: rgba(255,255,255,0.02); }
-        .channel-card:hover, .channel-card:focus { background: rgba(255, 255, 255, 0.08); }
-        .channel-card.active { background: var(--primary-color); color: #fff; }
-        .fav-btn { cursor: pointer; color: #6b7280; padding: 4px; font-size: 12px; }
-        .fav-btn.active-fav { color: #f59e0b; }
-
-        .media-grid-panel { flex: 1; background: rgba(10, 14, 23, 0.5); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; display: flex; flex-direction: column; padding: 12px; overflow: hidden; }
-        .media-grid-container { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-        .media-poster-card { position: relative; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; aspect-ratio: 1 / 1; }
-        .media-poster-card:hover, .media-poster-card:focus { border-color: var(--primary-color); transform: translateY(-3px); }
-        .media-poster-card.active { border-color: var(--primary-color); background: var(--primary-glow); }
-        .media-poster-img { width: 100%; height: 75%; object-fit: cover; }
-        .media-poster-title { flex: 1; display: flex; align-items: center; justify-content: center; padding: 4px; font-size: 10px; font-weight: bold; text-align: center; color: #fff; }
-
-        .main-display { flex: 1; background-color: #000; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; position: relative; overflow: hidden; }
-        .player-slideshow { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-        .player-slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-size: cover; background-position: center; opacity: 0; transition: opacity 1.5s ease-in-out; }
-        .player-slide::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); }
-        .player-slide.active { opacity: 1; }
-
-        video { width: 100%; height: 100%; object-fit: fill; background: #000; display: none; position: relative; z-index: 3; }
-        .fullscreen-btn { position: absolute; bottom: 15px; right: 15px; z-index: 10; background: rgba(0,0,0,0.7); border: 1px solid var(--primary-color); color: #fff; padding: 8px 14px; cursor: pointer; border-radius: 6px; display: none; font-size: 11px; }
-
-        /* الإعدادات */
-        .settings-panel {
-            flex: 1; background: rgba(10, 14, 23, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px; padding: 25px; overflow-y: auto;
-            display: flex; flex-direction: column; gap: 25px;
-        }
-        .settings-title { font-size: 16px; font-weight: bold; color: #fff; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 10px; display: flex; align-items: center; gap: 10px; }
-        .settings-group { display: flex; flex-direction: column; gap: 12px; }
-        .settings-group h3 { font-size: 13px; color: #94a3b8; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-        
-        .options-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-top: 5px; }
-        
-        .theme-card, .lang-card {
-            background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 10px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px;
-            cursor: pointer; transition: all 0.25s ease; text-align: center;
-        }
-        .theme-card:hover, .theme-card:focus, .lang-card:hover, .lang-card:focus { background: rgba(255, 255, 255, 0.08); border-color: var(--primary-color); transform: translateY(-2px); }
-        .lang-card.active-lang { border-color: var(--primary-color); background: var(--primary-glow); }
-        .color-preview { width: 35px; height: 35px; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.2); }
-        .lang-flag { font-size: 24px; }
-        .theme-card span, .lang-card span { font-size: 11px; font-weight: 600; color: #e2e8f0; }
-    </style>
-</head>
-<body>
-
-<!-- شاشة الحماية -->
-<div id="auth-screen">
-    <img src="https://k.top4top.io/p_38425bcan1.png" style="width:110px; margin-bottom:15px;" alt="Logo">
-    <h2 id="txt-auth-title">ENTRER LE CODE D'ACCÈS</h2>
-    <input type="password" id="code-input" placeholder="CODE" onkeydown="if(event.key==='Enter') checkCode()">
-    <button id="btn-auth-submit" onclick="checkCode()">ACTIVER</button>
-    <a href="https://www.youtube.com/@youcefdivx/videos" target="_blank" class="glass-button" id="btn-auth-getcode">
-        <i class="fab fa-youtube" style="color: #ff0000;"></i> Obtenir le code gratuit
-    </a>
-</div>
-
-<!-- Splash Screen -->
-<div class="splash-screen" id="splash-screen">
-    <img src="https://k.top4top.io/p_38425bcan1.png" class="splash-logo" alt="Logo">
-    <div class="splash-loader"></div>
-</div>
-
-<!-- الحاوية الأساسية للتطبيق -->
-<div class="app-container">
-
-    <!-- القائمة العلوية الأفقية -->
-    <header class="main-sidebar">
-        <div class="sidebar-brand">
-            <img src="https://k.top4top.io/p_38425bcan1.png" alt="YOUCEF TV">
-        </div>
-        <nav class="nav-menu">
-            <div class="nav-item active" id="nav-live" tabindex="0" onclick="switchMainTab('live')" onkeydown="if(event.key==='Enter') switchMainTab('live')">
-                <i class="fas fa-tv"></i>
-                <span id="txt-nav-live">DIRECT</span>
-            </div>
-            <div class="nav-item" id="nav-movies" tabindex="0" onclick="switchMainTab('movies')" onkeydown="if(event.key==='Enter') switchMainTab('movies')">
-                <i class="fas fa-film"></i>
-                <span id="txt-nav-movies">FILMS</span>
-            </div>
-            <div class="nav-item" id="nav-series" tabindex="0" onclick="switchMainTab('series')" onkeydown="if(event.key==='Enter') switchMainTab('series')">
-                <i class="fas fa-video"></i>
-                <span id="txt-nav-series">SERIES</span>
-            </div>
-            <div class="nav-item" id="nav-settings" tabindex="0" onclick="switchMainTab('settings')" onkeydown="if(event.key==='Enter') switchMainTab('settings')">
-                <i class="fas fa-sliders-h"></i>
-                <span id="txt-nav-settings">PARAMÈTRES</span>
-            </div>
-        </nav>
-    </header>
-
-    <!-- منطقة عرض المحتوى الرئيسي -->
-    <main class="content-area">
-
-        <!-- 1. DIRECT / LIVE -->
-        <div id="view-live" class="view-section active-view">
-            <div class="sub-sidebar" id="categories-container"></div>
-            <div class="channels-panel">
-                <input type="text" id="search-input" class="search-box" placeholder="Rechercher..." oninput="filterChannels()">
-                <div class="channels-list" id="channels-container"></div>
-            </div>
-            <div class="main-display">
-                <div class="player-slideshow">
-                    <div class="player-slide active" style="background-image: url('https://assets.bein.com/bmg/2015/02/bein-sports-americas-poster-img.png');"></div>
-                    <div class="player-slide" style="background-image: url('https://www.musicnation.me/wp-content/uploads/2023/12/osn-warner-bros.jpg');"></div>
-                    <div class="player-slide" style="background-image: url('https://images7.alphacoders.com/115/1152299.jpg');"></div>
-                    <div class="player-slide" style="background-image: url('https://sportsmintmedia.com/wp-content/uploads/2023/06/beIN-Sports-inks-media-rights-deal-with-UEFA.jpg');"></div>
-                    <div class="player-slide" style="background-image: url('https://cdn.aptoide.com/imgs/5/9/9/599f4c3304254e3cf0bbe277796a0313_fgraphic.png');"></div>
-
-                </div>
-                <button class="fullscreen-btn" id="fullscreen-btn-live" onclick="toggleFullscreen()"><i class="fas fa-expand"></i> <span class="txt-fullscreen">Plein écran</span></button>
-                <video id="video_player" controls autoplay playsinline></video>
-            </div>
-        </div>
-
-        <!-- 2. MOVIES -->
-        <div id="view-movies" class="view-section">
-            <div class="sub-sidebar" id="movies-categories-container"></div>
-            <div class="media-grid-panel">
-                <input type="text" id="movies-search-input" class="search-box" placeholder="Rechercher un film..." oninput="filterMovies()">
-                <div class="media-grid-container" id="movies-container"></div>
-            </div>
-            <div class="main-display">
-                <div class="player-slideshow">
-                    <div class="player-slide active" style="background-image: url('https://www.musicnation.me/wp-content/uploads/2023/12/osn-warner-bros.jpg');"></div>
-                    <div class="player-slide" style="background-image: url('https://images7.alphacoders.com/115/1152299.jpg');"></div>
-                </div>
-                <button class="fullscreen-btn" id="fullscreen-btn-movies" onclick="toggleFullscreen()"><i class="fas fa-expand"></i> <span class="txt-fullscreen">Plein écran</span></button>
-                <video id="video_player_movies" controls autoplay playsinline></video>
-            </div>
-        </div>
-
-        <!-- 3. SERIES -->
-        <div id="view-series" class="view-section">
-            <div class="sub-sidebar" id="series-categories-container"></div>
-            <div class="media-grid-panel">
-                <input type="text" id="series-search-input" class="search-box" placeholder="Rechercher une série..." oninput="filterSeries()">
-                <div class="media-grid-container" id="series-container"></div>
-            </div>
-            <div class="main-display">
-                <div class="player-slideshow">
-                    <div class="player-slide active" style="background-image: url('https://images7.alphacoders.com/115/1152299.jpg');"></div>
-                    <div class="player-slide" style="background-image: url('https://www.ecranlarge.com/content/uploads/2021/05/canal-photo-netflix-1379671.png');"></div>
-                     <div class="player-slide active" style="background-image: url('https://assets.bein.com/bmg/2025/04/UEFA-x-beIN_EN.png');"></div>
-                </div>
-                <button class="fullscreen-btn" id="fullscreen-btn-series" onclick="toggleFullscreen()"><i class="fas fa-expand"></i> <span class="txt-fullscreen">Plein écran</span></button>
-                <video id="video_player_series" controls autoplay playsinline></video>
-            </div>
-        </div>
-
-        <!-- 4. SETTINGS / الإعدادات -->
-        <div id="view-settings" class="view-section">
-            <div class="settings-panel">
-                <div class="settings-title">
-                    <i class="fas fa-cog" style="color: var(--primary-color);"></i>
-                    <span id="txt-settings-header">PARAMÈTRES</span>
-                </div>
-
-                <!-- خيار تغيير اللغة -->
-                <div class="settings-group">
-                    <h3><i class="fas fa-language"></i> <span id="txt-group-lang">Langue de l'application</span></h3>
-                    <div class="options-grid">
-                        <div class="lang-card" id="lang-fr" tabindex="0" onclick="applyLanguage('fr')" onkeydown="if(event.key==='Enter') applyLanguage('fr')">
-                            <div class="lang-flag">🇫🇷</div>
-                            <span>Français</span>
-                        </div>
-                        <div class="lang-card" id="lang-ar" tabindex="0" onclick="applyLanguage('ar')" onkeydown="if(event.key==='Enter') applyLanguage('ar')">
-                            <div class="lang-flag">🇩🇿</div>
-                            <span>العربية</span>
-                        </div>
-                        <div class="lang-card" id="lang-en" tabindex="0" onclick="applyLanguage('en')" onkeydown="if(event.key==='Enter') applyLanguage('en')">
-                            <div class="lang-flag">🇬🇧</div>
-                            <span>English</span>
-                        </div>
-                        <div class="lang-card" id="lang-es" tabindex="0" onclick="applyLanguage('es')" onkeydown="if(event.key==='Enter') applyLanguage('es')">
-                            <div class="lang-flag">🇪🇸</div>
-                            <span>Español</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- خيار ألوان التطبيق -->
-                <div class="settings-group">
-                    <h3><i class="fas fa-palette"></i> <span id="txt-group-theme">Couleur du thème</span></h3>
-                    <div class="options-grid">
-                        <div class="theme-card" tabindex="0" onclick="applyTheme('#3b82f6', '#1d4ed8', 'rgba(59, 130, 246, 0.4)')" onkeydown="if(event.key==='Enter') applyTheme('#3b82f6', '#1d4ed8', 'rgba(59, 130, 246, 0.4)')">
-                            <div class="color-preview" style="background: #3b82f6;"></div>
-                            <span id="theme-blue">Bleu</span>
-                        </div>
-                        <div class="theme-card" tabindex="0" onclick="applyTheme('#ef4444', '#b91c1c', 'rgba(239, 68, 68, 0.4)')" onkeydown="if(event.key==='Enter') applyTheme('#ef4444', '#b91c1c', 'rgba(239, 68, 68, 0.4)')">
-                            <div class="color-preview" style="background: #ef4444;"></div>
-                            <span id="theme-red">Rouge</span>
-                        </div>
-                        <div class="theme-card" tabindex="0" onclick="applyTheme('#10b981', '#047857', 'rgba(16, 185, 129, 0.4)')" onkeydown="if(event.key==='Enter') applyTheme('#10b981', '#047857', 'rgba(16, 185, 129, 0.4)')">
-                            <div class="color-preview" style="background: #10b981;"></div>
-                            <span id="theme-green">Vert</span>
-                        </div>
-                        <div class="theme-card" tabindex="0" onclick="applyTheme('#8b5cf6', '#6d28d9', 'rgba(139, 92, 246, 0.4)')" onkeydown="if(event.key==='Enter') applyTheme('#8b5cf6', '#6d28d9', 'rgba(139, 92, 246, 0.4)')">
-                            <div class="color-preview" style="background: #8b5cf6;"></div>
-                            <span id="theme-purple">Violet</span>
-                        </div>
-                        <div class="theme-card" tabindex="0" onclick="applyTheme('#f59e0b', '#b45309', 'rgba(245, 158, 11, 0.4)')" onkeydown="if(event.key==='Enter') applyTheme('#f59e0b', '#b45309', 'rgba(245, 158, 11, 0.4)')">
-                            <div class="color-preview" style="background: #f59e0b;"></div>
-                            <span id="theme-gold">Or</span>
-                        </div>
-                        <div class="theme-card" tabindex="0" onclick="applyTheme('#ec4899', '#be185d', 'rgba(236, 72, 153, 0.4)')" onkeydown="if(event.key==='Enter') applyTheme('#ec4899', '#be185d', 'rgba(236, 72, 153, 0.4)')">
-                            <div class="color-preview" style="background: #ec4899;"></div>
-                            <span id="theme-pink">Rose</span>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-    </main>
-
-</div>
-
-<script>
-    const CORRECT_CODE = "124010186";
-    let current_player = null;
-    let hls_player = null;
-    let currentSlideIndex = 0;
-    let currentLang = 'fr';
-
-    const translations = {
-        fr: {
-            dir: 'ltr',
-            auth_title: "ENTRER LE CODE D'ACCÈS",
-            auth_submit: "ACTIVER",
-            auth_getcode: "Obtenir le code gratuit",
-            nav_live: "DIRECT",
-            nav_movies: "FILMS",
-            nav_series: "SERIES",
-            nav_settings: "PARAMÈTRES",
-            settings_header: "PARAMÈTRES",
-            group_lang: "Langue de l'application",
-            group_theme: "Couleur du thème",
-            search_channel: "Rechercher...",
-            search_movie: "Rechercher un film...",
-            search_serie: "Rechercher une série...",
-            fullscreen: "Plein écran",
-            fav_cat: "⭐ FAVORIS",
-            all_cat: "TOUT",
-            blue: "Bleu", red: "Rouge", green: "Vert", purple: "Violet", gold: "Or", pink: "Rose"
-        },
-        ar: {
-            dir: 'rtl',
-            auth_title: "أدخل رمز التفعيل",
-            auth_submit: "تفعيل",
-            auth_getcode: "الحصول على الرمز مجاناً",
-            nav_live: "بث مباشر",
-            nav_movies: "أفلام",
-            nav_series: "مسلسلات",
-            nav_settings: "الإعدادات",
-            settings_header: "الإعدادات العامة",
-            group_lang: "لغة التطبيق",
-            group_theme: "لون التطبيق",
-            search_channel: "بحث...",
-            search_movie: "بحث عن فيلم...",
-            search_serie: "بحث عن مسلسل...",
-            fullscreen: "ملء الشاشة",
-            fav_cat: "⭐ المفضلة",
-            all_cat: "الكل",
-            blue: "أزرق", red: "أحمر", green: "أخضر", purple: "بنفسجي", gold: "ذهبي", pink: "وردي"
-        },
-        en: {
-            dir: 'ltr',
-            auth_title: "ENTER ACCESS CODE",
-            auth_submit: "ACTIVATE",
-            auth_getcode: "Get free code",
-            nav_live: "LIVE TV",
-            nav_movies: "MOVIES",
-            nav_series: "SERIES",
-            nav_settings: "SETTINGS",
-            settings_header: "SETTINGS",
-            group_lang: "App Language",
-            group_theme: "App Theme Color",
-            search_channel: "Search...",
-            search_movie: "Search movie...",
-            search_serie: "Search series...",
-            fullscreen: "Full screen",
-            fav_cat: "⭐ FAVORITES",
-            all_cat: "ALL",
-            blue: "Blue", red: "Red", green: "Green", purple: "Purple", gold: "Gold", pink: "Pink"
-        },
-        es: {
-            dir: 'ltr',
-            auth_title: "INGRESAR CÓDIGO",
-            auth_submit: "ACTIVAR",
-            auth_getcode: "Obtener código gratis",
-            nav_live: "DIRECTO",
-            nav_movies: "PELÍCULAS",
-            nav_series: "SERIES",
-            nav_settings: "AJUSTES",
-            settings_header: "AJUSTES",
-            group_lang: "Idioma de la aplicación",
-            group_theme: "Color del tema",
-            search_channel: "Buscar...",
-            search_movie: "Buscar película...",
-            search_serie: "Buscar serie...",
-            fullscreen: "Pantalla completa",
-            fav_cat: "⭐ FAVORITOS",
-            all_cat: "TODOS",
-            blue: "Azul", red: "Rojo", green: "Verde", purple: "Púrpura", gold: "Dorado", pink: "Rosa"
-        }
-    };
-
-    const livePlaylistRaw = `#EXTM3U
 #EXTINF:-1 tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-Global.png" group-title="BEIN SPORT VIP",MBC VIP
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-1/15cf99af5de54063fdabfefe66adc075/index.m3u8
-
 #EXTINF:-1 tvg-ID="" tvg-name="beIN Global HD" tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Global.jpg" group-title="beIN Sport HD",beIN Global HD
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/442220.ts
 #EXTINF:-1 tvg-ID="" tvg-name="beIN Sport News HD" tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-News.png" group-title="beIN Sport HD",beIN Sport News HD
@@ -446,7 +50,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/447247.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/447248.ts
 #EXTINF:-1 tvg-ID="" tvg-name="beIN Sport NBA HD" tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-NBA.jpg" group-title="beIN Sport HD",beIN Sport NBA HD
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/318219.ts
-
 #EXTINF:-1 tvg-ID="" tvg-name="Fajer TV 1" tvg-logo="" group-title="Fajer",Fajer TV 1
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/463532.ts
 #EXTINF:-1 tvg-ID="" tvg-name="Fajer TV 2" tvg-logo="" group-title="Fajer",Fajer TV 2
@@ -499,36 +102,22 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/460853.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/460854.ts
 #EXTINF:-1 tvg-ID="" tvg-name="beIN Sport Tod Extra 9" tvg-logo="" group-title="beIN Tod",beIN Sport Tod Extra 9
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/460855.ts
-
-
 #EXTINF:-1 tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-Global.png" group-title="NEWS",AL JAZZERA TV
 https://live-hls-web-ajd-ll-bp.thehlive.com/AJD/03.m3u8
-
 #EXTINF:-1 tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-Global.png" group-title="MAROC",bein series
 Http://dasifnz3.otttv.pw/iptv/ZASGRTFYHX4RT9/6138/index.m3u8
-
-
-
 #EXTINF:-1 tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-Global.png" group-title="NEWS",ARABIA NEWS
 https://live.alarabiya.net/alarabiapublish/alarabiya.smil/alarabiapublish/alarabiya_720p/chunks.m3u8
-
 #EXTINF:-1 tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-Global.png" group-title="NEWS",MIX HOLYWOOD 
 https://ml-pull-hwc.myco.io/MixTV/hls/MixTV_H264-720p.m3u8?pkg_media=video&pkg_hm=index.m3u8&pkg_svc=1&pkg_vcodec=avc1
-
 #EXTINF:-1 tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-Global.png" group-title="NEWS",MIX ARABI 
 https://ml-pull-hwc.myco.io/MixBelAraby/hls/MixBelAraby_H264-720p.m3u8?pkg_media=video&pkg_hm=index.m3u8&pkg_svc=1&pkg_vcodec=avc1
-
 #EXTINF:-1 tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-Global.png" group-title="NEWS",AL JAZZERA LIVE 
 https://live-hls-web-ajm-ll-bp.thehlive.com/AJM/03.m3u8
-
-#EXTM3U
 #EXTINF:-1 tvg-name="Al Resalah" group-title="Rotana", 2m maroc
 https://d2qh3gh0k5vp3v.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-n6pess5lwbghr/2M_ES.m3u8
-
 #EXTINF:-1 tvg-id="Motorvision.de" tvg-name="Motorvision TV" group-title="Sports & Racing",BEIN SPORT TEST
 http://2756d46c.akciatv.ru:80/iptv/7FRNF6CY9A9TG3/6128/index.m3u8
-
-#EXTM3U
 #EXTINF:-1 tvg-name="beIN Sports 1" group-title="beIN Sports",beIN Sports 1 HD
 http://sr.oztvlb.site/bein_sport_1/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-name="beIN Sports 2" group-title="beIN Sports",beIN Sports 2 HD
@@ -557,101 +146,58 @@ http://sr.oztvlb.site/bein_sport_premium_2/tracks-v1a1/mono.m3u8
 http://sr.oztvlb.site/bein_sport_premium_3/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-name="beIN Sports News" group-title="beIN Sports",beIN Sports News HD
 http://sr.oztvlb.site/bein_sport_news/tracks-v1a1/mono.m3u8
-
-
-
-
-
-
-
-
-# ==================== GENERAL & ENTERTAINMENT ====================
 #EXTINF:-1 tvg-id="MBC1.sa" tvg-logo="https://shahid.mbc.net/assets/images/mbc1.png" group-title="MBC General",MBC 1
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-1/15cf99af5de54063fdabfefe66adc075/index.m3u8
-
 #EXTINF:-1 tvg-id="MBC2.sa" tvg-logo="https://shahid.mbc.net/assets/images/mbc2.png" group-title="MBC General",MBC 2
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-2/51db9d7fa48a27d051f1eecb68069151/index.m3u8
-
 #EXTINF:-1 tvg-id="MBC4.sa" tvg-logo="https://shahid.mbc.net/assets/images/mbc4.png" group-title="MBC General",MBC 4
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-4/24f134f1cd63db9346439e96b86ca6ed/index.m3u8
-
 #EXTINF:-1 tvg-id="MBCAction.sa" tvg-logo="https://shahid.mbc.net/assets/images/mbcaction.png" group-title="MBC General",MBC Action
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-action/987a6b5c4d3e2f109876543210abcdef/index.m3u8
-
 #EXTINF:-1 tvg-id="MBC5.ma" tvg-logo="https://shahid.mbc.net/assets/images/mbc5.png" group-title="MBC Regional",MBC 5 Maghreb
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-5/ee6b000cee0629411b666ab26cb13e9b/index.m3u8
-
-# ==================== DRAMA & CINEMA ====================
 #EXTINF:-1 tvg-id="MBCDrama.sa" tvg-logo="https://shahid.mbc.net/assets/images/mbcdrama.png" group-title="MBC Drama",MBC Drama
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-drama/1234567890abcdef1234567890abcdef/index.m3u8
-
 #EXTINF:-1 tvg-id="MBCPlusDrama.sa" tvg-logo="https://shahid.mbc.net/assets/images/mbcplusdrama.png" group-title="MBC Drama",MBC Plus Drama
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-plus-drama/e37251ec2aac8f6c98f75cd0fa37cd28/index.m3u8
-
 #EXTINF:-1 tvg-id="MBCBollywood.sa" tvg-logo="https://shahid.mbc.net/assets/images/mbcbollywood.png" group-title="MBC Drama",MBC Bollywood
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-bollywood/546eb40d7dcf9a209255dd2496903764/index.m3u8
-
-# ==================== REGIONAL CHANNELS ====================
 #EXTINF:-1 tvg-id="MBCMasr.eg" tvg-logo="https://shahid.mbc.net/assets/images/mbcmasr.png" group-title="MBC Egypt & Iraq",MBC Masr
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-masr/956eac069c78a35d47245db6cdbb1575/index.m3u8
-
 #EXTINF:-1 tvg-id="MBCMasr2.eg" tvg-logo="https://shahid.mbc.net/assets/images/mbcmasr2.png" group-title="MBC Egypt & Iraq",MBC Masr 2
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-masr-2/754931856515075b0aabf0e583495c68/index.m3u8
-
 #EXTINF:-1 tvg-id="MBCMasrDrama.eg" tvg-logo="https://shahid.mbc.net/assets/images/mbcmasrdrama.png" group-title="MBC Egypt & Iraq",MBC Masr Drama
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-masr-drama/567b703c19ede6598222de81b0e4508b/index.m3u8
-
 #EXTINF:-1 tvg-id="MBCIraq.iq" tvg-logo="https://shahid.mbc.net/assets/images/mbciraq.png" group-title="MBC Egypt & Iraq",MBC Iraq
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-iraq/e38c44b1b43474e1c39cb5b90203691e/index.m3u8
-
 #EXTINF:-1 tvg-id="MBCPersia.ir" tvg-logo="https://shahid.mbc.net/assets/images/mbcpersia.png" group-title="MBC Regional",MBC Persia
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-persia/818ee8e4b592dc497608f066d825bfb4/index.m3u8
-
 #EXTINF:-1 tvg-id="LBC.lb" tvg-logo="https://shahid.mbc.net/assets/images/lbc.png" group-title="MBC Regional",LBC International
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-lbc-int/55667788990011223344aabbccddeeff/index.m3u8
-
-# ==================== KIDS & FAMILY ====================
 #EXTINF:-1 tvg-id="MBC3.sa" tvg-logo="https://shahid.mbc.net/assets/images/mbc3.png" group-title="Kids",MBC 3
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-3/4d8c7c95b682e0e0f80e0e0a12345678/index.m3u8
-
 #EXTINF:-1 tvg-id="Spacetoon.ae" tvg-logo="https://shahid.mbc.net/assets/images/spacetoon.png" group-title="Kids",Spacetoon
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-spacetoon/d8382fb9ab4b2307058f12c7ea90db54/index.m3u8
-
-# ==================== SHAHID LIVE EVENTS & MOOD ====================
 #EXTINF:-1 tvg-id="ShahidEvents.sa" tvg-logo="https://shahid.mbc.net/assets/images/events.png" group-title="Shahid Live Events",Shahid Events / Live 1
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-shahid-events/3344556677889900aabbccddeeff1122/index.m3u8
-
 #EXTINF:-1 tvg-id="BigTimePlus.sa" tvg-logo="https://shahid.mbc.net/assets/images/bigtime.png" group-title="Shahid Live Events",Big Time Plus
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-big-time-plus/924283f994779a311c1389698ff7e736/index.m3u8
-
 #EXTINF:-1 tvg-id="MBCMood.sa" tvg-logo="https://shahid.mbc.net/assets/images/mbcmood.png" group-title="Shahid Live Events",MBC Mood
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-mood/78367bf48ccdba501d0d014a10c21031/index.m3u8
-
 #EXTINF:-1 tvg-id="Wanasah.sa" tvg-logo="https://shahid.mbc.net/assets/images/wanasah.png" group-title="Shahid Live Events",Wanasah TV
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-wanasah/11223344556677889900aabbccddeeff/index.m3u8
-
-# ==================== NEWS & SAUDI TV ====================
 #EXTINF:-1 tvg-id="AlArabiya.sa" tvg-logo="https://shahid.mbc.net/assets/images/alarabiya.png" group-title="News",Al Arabiya
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-al-arabiya/a1b2c3d4e5f678901234567890abcdef/index.m3u8
-
 #EXTINF:-1 tvg-id="AlHadath.sa" tvg-logo="https://shahid.mbc.net/assets/images/alhadath.png" group-title="News",Al Hadath
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-hadath/2ff87ec4c2f3ede35295a20637d9f8fd/index.m3u8
-
 #EXTINF:-1 tvg-id="AlEkhbaria.sa" tvg-logo="https://shahid.mbc.net/assets/images/ekhbaria.png" group-title="News",Al Ekhbaria
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-al-ekhbaria/297b3ef1cd0633ad9cfba7473a686a06/index.m3u8
-
 #EXTINF:-1 tvg-id="AsharqNews.sa" tvg-logo="https://shahid.mbc.net/assets/images/asharq.png" group-title="News",Asharq News
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-asharq/10ae30c64e21402c8116a7fb1e5aa789/index.m3u8
-
 #EXTINF:-1 tvg-id="AlSaudiya.sa" tvg-logo="https://shahid.mbc.net/assets/images/saudiya.png" group-title="Saudi Networks",Al Saudiya
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-saudi-tv/2ad66056b51fd8c1b624854623112e43/index.m3u8
-
 #EXTINF:-1 tvg-id="SBC.sa" tvg-logo="https://shahid.mbc.net/assets/images/sbc.png" group-title="Saudi Networks",SBC Saudi
 https://shd-gcp-live.edgenextcdn.net/live/bitmovin-sbc/90e09c0c28db26435799b4a14892a167/index.m3u8
-
-
-
-
 #EXTINF:-1 tvg-ID="" tvg-name="Alwan Mosalsalat 4K" tvg-logo="" group-title="Alwan",Alwan Mosalsalat 4K
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/418133.ts
 #EXTINF:-1 tvg-ID="" tvg-name="Alwan Mosalsalat+ 4K" tvg-logo="" group-title="Alwan",Alwan Mosalsalat+ 4K
@@ -722,9 +268,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/319426.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/319427.ts
 #EXTINF:-1 tvg-ID="" tvg-name="beIN Sport French 2 sd" tvg-logo="http://51.158.158.30/world_tv_logos/bein-2.png" group-title="beIN Sport SD",beIN Sport French 2 sd
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/319428.ts
-
-
-
 #EXTINF:-1 tvg-ID="" tvg-name="beIN Sport Global 4K" tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-Global.png" group-title="beIN Sport 4K",beIN Sport Global 4K
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/22186.ts
 #EXTINF:-1 tvg-ID="" tvg-name="beIN Sport News 4K" tvg-logo="http://51.158.158.30/world_tv_logos/beIN-Sport-News.png" group-title="beIN Sport 4K",beIN Sport News 4K
@@ -927,10 +470,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/97824.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/97823.ts
 #EXTINF:-1 tvg-ID="" tvg-name="PalestineSport" tvg-logo="" group-title="ARABIC SPORT",PalestineSport
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/417306.ts
-
-
-
-
 #EXTINF:-1 tvg-ID="" tvg-name="OSN Yahala Aflam" tvg-logo="http://163.172.39.182:80/logo/osn.jpg" group-title="OSN",OSN Yahala Aflam
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/313384.ts
 #EXTINF:-1 tvg-ID="" tvg-name="OSN Yahala Bil Arabi" tvg-logo="http://163.172.39.182:80/logo/osn.jpg" group-title="OSN",OSN Yahala Bil Arabi
@@ -1039,9 +578,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/313381.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/313382.ts
 #EXTINF:-1 tvg-ID="" tvg-name="OSN VH+1" tvg-logo="http://163.172.39.182:80/logo/osn.jpg" group-title="OSN",OSN VH+1
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/313383.ts
-
-
-#EXTM3U
 #EXTINF:-1 tvg-ID="" tvg-name="AR: SALAM TV" tvg-logo="http://51.158.158.30/logos/Libya/Salam_Tv.png" group-title="Libya",AR: SALAM TV
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/414044.ts
 #EXTINF:-1 tvg-ID="" tvg-name="AR: LIBYA WTV 4K" tvg-logo="http://51.158.158.30/logos/Libya/LIBYA.WTV.4K.jpg" group-title="Libya",AR: LIBYA WTV 4K
@@ -1966,9 +1502,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/375812.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/375813.ts
 #EXTINF:-1 tvg-ID="" tvg-name="DE: STARPARADIES D" tvg-logo="http://163.172.39.182:80/logo/de.png" group-title="GEREMANY",DE: STARPARADIES D
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/3
-
-
-#EXTM3U
 #EXTINF:-1 tvg-ID="" tvg-name="AR: SALAM TV" tvg-logo="http://51.158.158.30/logos/Libya/Salam_Tv.png" group-title="Libya",AR: SALAM TV
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/414044.ts
 #EXTINF:-1 tvg-ID="" tvg-name="AR: LIBYA WTV 4K" tvg-logo="http://51.158.158.30/logos/Libya/LIBYA.WTV.4K.jpg" group-title="Libya",AR: LIBYA WTV 4K
@@ -2199,8 +1732,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/21200.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/14986.ts
 #EXTINF:-1 tvg-ID="" tvg-name="TUN.CARTHAGE +" tvg-logo="http://51.158.158.30/logos/Tunisia/TUN-CARTHAGE.jpg" group-title="TUNISIA",TUN.CARTHAGE +
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/43597.ts
-
-
 #EXTINF:-1 tvg-ID="" tvg-name="IT: SKY CINEMA SUSPENSE HD" tvg-logo="http://163.172.39.182:80/logo/it.png" group-title="ITALIA",IT: SKY CINEMA SUSPENSE HD
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/362404.ts
 #EXTINF:-1 tvg-ID="" tvg-name="IT: SKY CINEMA SUSPENSE 4K" tvg-logo="http://163.172.39.182:80/logo/it.png" group-title="ITALIA",IT: SKY CINEMA SUSPENSE 4K
@@ -2683,7 +2214,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/362216.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/362215.ts
 #EXTINF:-1 tvg-ID="" tvg-name="IT: DAZN UFC 3" tvg-logo="http://163.172.39.182:80/logo/it.png" group-title="ITALIA",IT: DAZN UFC 3
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/362214.ts
-
 #EXTINF:-1 tvg-ID="" tvg-name="PT: SPORT TV 1 HD" tvg-logo="http://163.172.39.182:80/logo/pt.png" group-title="PORTUGAL",PT: SPORT TV 1 HD
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/43594.ts
 #EXTINF:-1 tvg-ID="" tvg-name="PT: SPORT TV 2 HD" tvg-logo="http://163.172.39.182:80/logo/pt.png" group-title="PORTUGAL",PT: SPORT TV 2 HD
@@ -3188,9 +2718,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/441553.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/441554.ts
 #EXTINF:-1 tvg-ID="" tvg-name="NO: EUROSPORT 1" tvg-logo="" group-title="NORWAY",NO: EUROSPORT 1
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/441555.ts
-
-
-#== الباقة الرياضية ==#
 #EXTINF:-1 group-title="Sports",Stream 201
 http://stream.mcquack.net/201/index.m3u8
 #EXTINF:-1 group-title="Sports",Stream 202
@@ -3203,8 +2730,6 @@ http://stream.mcquack.net/210/index.m3u8
 http://stream.mcquack.net/215/index.m3u8
 #EXTINF:-1 group-title="Sports",Stream 220
 http://stream.mcquack.net/220/index.m3u8
-
-#== الباقة العامة والترفيه ==#
 #EXTINF:-1 group-title="Entertainment",Stream 230
 http://stream.mcquack.net/230/index.m3u8
 #EXTINF:-1 group-title="Entertainment",Stream 231
@@ -3227,8 +2752,6 @@ http://stream.mcquack.net/238/index.m3u8
 http://stream.mcquack.net/239/index.m3u8
 #EXTINF:-1 group-title="Entertainment",Stream 240
 http://stream.mcquack.net/240/index.m3u8
-
-#== قنوات التوثيق والأفلام ==#
 #EXTINF:-1 group-title="Movies & Docs",Stream 241
 http://stream.mcquack.net/241/index.m3u8
 #EXTINF:-1 group-title="Movies & Docs",Stream 242
@@ -3237,8 +2760,6 @@ http://stream.mcquack.net/242/index.m3u8
 http://stream.mcquack.net/245/index.m3u8
 #EXTINF:-1 group-title="Movies & Docs",Stream 250
 http://stream.mcquack.net/250/index.m3u8
-
-# --- Kabla Network ---
 #EXTINF:-1 tvg-name="Kabla TV 1" group-title="Kabla", Kabla TV 1
 https://svs.itworkscdn.net/kablatvlive/kabtv1.smil/playlist.m3u8
 #EXTINF:-1 tvg-name="Kabla TV 2" group-title="Kabla", Kabla TV 2
@@ -3247,8 +2768,6 @@ https://svs.itworkscdn.net/kablatvlive/kabtv2.smil/playlist.m3u8
 https://svs.itworkscdn.net/kablatvlive/kabtv3.smil/playlist.m3u8
 #EXTINF:-1 tvg-name="Kabla TV 4" group-title="Kabla", Kabla TV 4
 https://svs.itworkscdn.net/kablatvlive/kabtv4.smil/playlist.m3u8
-
-# --- News & Documentaries ---
 #EXTINF:-1 tvg-name="Asharq Discovery" group-title="Documentary", Asharq Discovery
 https://svs.itworkscdn.net/asharqdiscoverylive/asharqd.smil/playlist_dvr.m3u8
 #EXTINF:-1 tvg-name="Asharq Documentary" group-title="Documentary", Asharq Documentary
@@ -3259,7 +2778,6 @@ https://svs.itworkscdn.net/asharqradiovlive/asharqradiov/playlist.m3u8
 https://svs.itworkscdn.net/rudawlive/rudawlive.smil/playlist.m3u8
 #EXTINF:-1 tvg-name="Al Masirah" group-title="News", Al Masirah
 https://svs.itworkscdn.net/almasiralive/almasira.smil/playlist.m3u8
-
 #EXTINF:-1 tvg-ID="" tvg-name="RO: DIGI SPORT 1" tvg-logo="" group-title="ROMANIAN",RO: DIGI SPORT 1
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/378494.ts
 #EXTINF:-1 tvg-ID="" tvg-name="RO: DIGI SPORT 2 HD" tvg-logo="" group-title="ROMANIAN",RO: DIGI SPORT 2 HD
@@ -3286,9 +2804,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/378504.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/378505.ts
 #EXTINF:-1 tvg-ID="" tvg-name="RO: TELEKOM SPORT 3" tvg-logo="" group-title="ROMANIAN",RO: TELEKOM SPORT 3
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/378506.ts
-#EXTINF:-1 tvg-ID="" tvg-name="RO: TELEKOM SPORT 4 HD" t
-
-#EXTM3U
 #EXTINF:-1 group-title="Al Majd",AR: Al Majd1 4K
 http://luxipgold.xyz:8080/live/15034094901029/18800196589372/399906.ts
 #EXTINF:-1 group-title="Al Majd",AR: Al Majd QURAN
@@ -3313,8 +2828,6 @@ http://luxipgold.xyz:8080/live/15034094901029/18800196589372/399915.ts
 http://luxipgold.xyz:8080/live/15034094901029/18800196589372/399916.ts
 #EXTINF:-1 group-title="Al Majd",AR: Al Majd DAL
 http://luxipgold.xyz:8080/live/15034094901029/18800196589372/399917.ts
-
-#EXTM3U
 #EXTINF:-1 group-title="Roya",AR: ROYA HD
 http://luxipgold.xyz:8080/live/15034094901029/18800196589372/413912.ts
 #EXTINF:-1 group-title="Roya",AR: Roya Drama 4K
@@ -3390,7 +2903,6 @@ http://luxipgold.xyz:8080/live/15034094901029/18800196589372/43620.ts
 http://luxipgold.xyz:8080/live/15034094901029/18800196589372/43619.ts
 #EXTINF:-1 group-title="Home Cinema",AR: HOME CINEMA10
 http://luxipgold.xyz:8080/live/15034094901029/18800196589372/43618.ts
-#EXTM3U
 #EXTINF:-1 group-title="BoxOffice",BoxOffice 01
 http://luxipgold.xyz:8080/live/15034094901029/18800196589372/245995.ts
 #EXTINF:-1 group-title="BoxOffice",BoxOffice 02
@@ -3421,7 +2933,6 @@ http://luxipgold.xyz:8080/live/15034094901029/18800196589372/246007.ts
 http://luxipgold.xyz:8080/live/15034094901029/18800196589372/246008.ts
 #EXTINF:-1 group-title="BoxOffice",BoxOffice 15
 http://luxipgold.xyz:8080/live/15034094901029/18800196589372/246009.ts
-
 #EXTINF:-1 tvg-ID="" tvg-name="netflix AR 1" tvg-logo="http://163.172.39.182:80/logo/netflix.png" group-title="NETFLIX",netflix AR 1
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/276011.ts
 #EXTINF:-1 tvg-ID="" tvg-name="netflix AR 2" tvg-logo="http://163.172.39.182:80/logo/netflix.png" group-title="NETFLIX",netflix AR 2
@@ -4010,8 +3521,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/430914.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/430915.ts
 #EXTINF:-1 tvg-ID="" tvg-name="Shahid EVENT 4k" tvg-logo="" group-title="Shahid Spot",Shahid EVENT 4k
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/430916.ts
-
-
 #EXTINF:-1 group-title="BEIN SPORT KIDS",AR: DISENY KIDS 1 4K
 http://luxipgold.xyz:8080/15034094901029/18800196589372/399073
 #EXTINF:-1 group-title="BEIN SPORT KIDS",AR: DISENY KIDS 2 4K
@@ -4072,7 +3581,6 @@ http://luxipgold.xyz:8080/15034094901029/18800196589372/98026
 http://luxipgold.xyz:8080/15034094901029/18800196589372/98028
 #EXTINF:-1 group-title="BEIN SPORT KIDS",Kids: WANASAT BABY
 http://luxipgold.xyz:8080/15034094901029/18800196589372/98029
-
 #EXTINF:-1 tvg-ID="" tvg-name="EX_YU: ATV" tvg-logo="" group-title="EXYU GENERAL",EX_YU: ATV
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/59733.ts
 #EXTINF:-1 tvg-ID="" tvg-name="Zvezda TV" tvg-logo="" group-title="EXYU GENERAL",Zvezda TV
@@ -4784,8 +4292,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/362704.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/362705.ts
 #EXTINF:-1 tvg-ID="" tvg-name="SEN: EMAN TV" tvg-logo="http://163.172.39.182:80/logo/africa.jpg" group-title="AFRICA",SEN: EMAN TV
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/362706.ts
-
-
 #EXTINF:-1 tvg-ID="" tvg-name="AR: ALJAZEERA 360 مقاهي عتيقة" tvg-logo="" group-title="ALJAZEERA 360",AR: ALJAZEERA 360 مقاهي عتيقة
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/433159.ts
 #EXTINF:-1 tvg-ID="" tvg-name="4K: ALJAZEERA 360 تأملات" tvg-logo="" group-title="ALJAZEERA 360",4K: ALJAZEERA 360 تأملات
@@ -4906,7 +4412,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/398932.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/398933.ts
 #EXTINF:-1 tvg-ID="" tvg-name="NEWS.AL ARABY 2 HD" tvg-logo="http://51.158.158.30/world_tv_logos/NEWS-AL-ARABY-2-HD.jpg" group-title="NEWS",NEWS.AL ARABY 2 HD
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/21237.ts
-
 #EXTINF:-1 tvg-ID="" tvg-name="AR: EGYPTIAN TV 4K" tvg-logo="" group-title="EGYPT",AR: EGYPTIAN TV 4K
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/413810.ts
 #EXTINF:-1 tvg-ID="" tvg-name="AR: ALMASRYIA 4K" tvg-logo="" group-title="EGYPT",AR: ALMASRYIA 4K
@@ -5471,7 +4976,6 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/362599.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/362600.ts
 #EXTINF:-1 tvg-ID="" tvg-name="DS: ZEE WORLD" tvg-logo="http://163.172.39.182:80/logo/dstv.png" group-title="DSTV MULTICHOICE",DS: ZEE WORLD
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/362601.ts
-
 #EXTINF:-1 tvg-ID="" tvg-name="MH ZaMaN_1" tvg-logo="" group-title="Monow3at",MH ZaMaN_1
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/440745.ts
 #EXTINF:-1 tvg-ID="" tvg-name="MH ZaMaN_2" tvg-logo="" group-title="Monow3at",MH ZaMaN_2
@@ -5910,11 +5414,8 @@ http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/429714.ts
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/429715.ts
 #EXTINF:-1 tvg-ID="" tvg-name="Dever" tvg-logo="" group-title="KURDISTAN",Dever
 http://185.191.126.127:8080/live/b0:99:d7:15:88:50/3090914536649669/429716.ts
-
-
 #EXTINF:-1 group-title="11. ألمانيا",DE: ZDF HEVC
 http://185.191.126.127:8080/live///b0:99:d7:15:88:50/3090914536649669/375544.ts
-
 #EXTINF:-1 group-title="11. ألمانيا",DE: ZDF NEO HEVC
 http://185.191.126.127:8080/live///b0:99:d7:15:88:50/3090914536649669/375545.ts
 #EXTINF:-1 group-title="11. ألمانيا",DE: ZDF INFO HEVC
@@ -5949,299 +5450,3 @@ http://185.191.126.127:8080/live///b0:99:d7:15:88:50/3090914536649669/375559.ts
 http://185.191.126.127:8080/live///b0:99:d7:15:88:50/3090914536649669/375558.ts
 #EXTINF:-1 group-title="11. ألمانيا",DE: TLC HEVC
 http://185.191.126.127:8080/live///b0:99:d7:15:88:50/3090914536649669/375559.ts
-`;
-
-    const moviesPlaylistRaw = `#EXTM3U
-#EXTINF:-1 tvg-logo="https://k.top4top.io/p_38425bcan1.png" group-title="ACTION",Exemple Film Action
-https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
-`;
-
-    const seriesPlaylistRaw = `#EXTM3U
-#EXTINF:-1 tvg-logo="https://k.top4top.io/p_38425bcan1.png" group-title="DRAMA",Exemple Série Drama
-https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
-`;
-
-    function applyLanguage(lang) {
-        if (!translations[lang]) return;
-        currentLang = lang;
-        localStorage.setItem('youcef_lang', lang);
-
-        const t = translations[lang];
-        document.documentElement.lang = lang;
-        document.documentElement.dir = t.dir;
-
-        document.getElementById('txt-auth-title').innerText = t.auth_title;
-        document.getElementById('btn-auth-submit').innerText = t.auth_submit;
-        document.getElementById('btn-auth-getcode').innerHTML = `<i class="fab fa-youtube" style="color: #ff0000;"></i> ${t.auth_getcode}`;
-
-        document.getElementById('txt-nav-live').innerText = t.nav_live;
-        document.getElementById('txt-nav-movies').innerText = t.nav_movies;
-        document.getElementById('txt-nav-series').innerText = t.nav_series;
-        document.getElementById('txt-nav-settings').innerText = t.nav_settings;
-
-        document.getElementById('txt-settings-header').innerText = t.settings_header;
-        document.getElementById('txt-group-lang').innerText = t.group_lang;
-        document.getElementById('txt-group-theme').innerText = t.group_theme;
-
-        document.getElementById('search-input').placeholder = t.search_channel;
-        document.getElementById('movies-search-input').placeholder = t.search_movie;
-        document.getElementById('series-search-input').placeholder = t.search_serie;
-
-        document.querySelectorAll('.txt-fullscreen').forEach(el => el.innerText = t.fullscreen);
-
-        document.getElementById('theme-blue').innerText = t.blue;
-        document.getElementById('theme-red').innerText = t.red;
-        document.getElementById('theme-green').innerText = t.green;
-        document.getElementById('theme-purple').innerText = t.purple;
-        document.getElementById('theme-gold').innerText = t.gold;
-        document.getElementById('theme-pink').innerText = t.pink;
-
-        document.querySelectorAll('.lang-card').forEach(card => card.classList.remove('active-lang'));
-        const activeCard = document.getElementById(`lang-${lang}`);
-        if (activeCard) activeCard.classList.add('active-lang');
-
-        loadPlaylistsData();
-    }
-
-    function applyTheme(primary, dark, glow) {
-        document.documentElement.style.setProperty('--primary-color', primary);
-        document.documentElement.style.setProperty('--primary-dark', dark);
-        document.documentElement.style.setProperty('--primary-glow', glow);
-
-        const themeData = { primary, dark, glow };
-        localStorage.setItem('youcef_theme', JSON.stringify(themeData));
-    }
-
-    function loadSavedSettings() {
-        const savedTheme = localStorage.getItem('youcef_theme');
-        if (savedTheme) {
-            try {
-                const { primary, dark, glow } = JSON.parse(savedTheme);
-                applyTheme(primary, dark, glow);
-            } catch(e) {}
-        }
-        const savedLang = localStorage.getItem('youcef_lang') || 'fr';
-        applyLanguage(savedLang);
-    }
-
-    function nextSlide() {
-        const activeView = document.querySelector('.view-section.active-view');
-        if (!activeView) return;
-        const slides = activeView.querySelectorAll('.player-slide');
-        if (slides.length === 0) return;
-        slides[currentSlideIndex].classList.remove('active');
-        currentSlideIndex = (currentSlideIndex + 1) % slides.length;
-        slides[currentSlideIndex].classList.add('active');
-    }
-    setInterval(nextSlide, 5000);
-
-    function checkCode() {
-        if (document.getElementById('code-input').value.trim() === CORRECT_CODE) {
-            localStorage.setItem('saved_code_youcef', CORRECT_CODE);
-            document.getElementById('auth-screen').style.display = 'none';
-            startApp();
-        } else {
-            alert("Code incorrect !");
-        }
-    }
-
-    function startApp() {
-        setTimeout(() => { document.getElementById('splash-screen').classList.add('fade-out'); }, 1800);
-        loadPlaylistsData();
-    }
-
-    window.onload = () => {
-        loadSavedSettings();
-        if (localStorage.getItem('saved_code_youcef') === CORRECT_CODE) {
-            document.getElementById('auth-screen').style.display = 'none';
-            startApp();
-        }
-    };
-
-    let cachedChannels = [], cachedMovies = [], cachedSeries = [];
-    let currentCategory = "TOUT", currentMovieCategory = "TOUT", currentSeriesCategory = "TOUT";
-    let favoritesList = JSON.parse(localStorage.getItem('youcef_favorites') || '[]');
-
-    function isFav(url) { return favoritesList.includes(url); }
-
-    function toggleFavorite(event, url) {
-        if (event) event.stopPropagation();
-        if (isFav(url)) { favoritesList = favoritesList.filter(u => u !== url); }
-        else { favoritesList.push(url); }
-        localStorage.setItem('youcef_favorites', JSON.stringify(favoritesList));
-        filterChannels(); filterMovies(); filterSeries();
-    }
-
-    function loadPlaylistsData() {
-        cachedChannels = parseM3U(livePlaylistRaw);
-        renderCategories('categories-container', cachedChannels, currentCategory, selectCategory);
-        filterChannels();
-
-        cachedMovies = parseM3U(moviesPlaylistRaw);
-        renderCategories('movies-categories-container', cachedMovies, currentMovieCategory, selectMovieCategory);
-        filterMovies();
-
-        cachedSeries = parseM3U(seriesPlaylistRaw);
-        renderCategories('series-categories-container', cachedSeries, currentSeriesCategory, selectSeriesCategory);
-        filterSeries();
-    }
-
-    function parseM3U(rawText) {
-        const lines = rawText.split(/\r?\n/);
-        let list = [];
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].startsWith('#EXTINF:')) {
-                const name = lines[i].split(',')[1]?.trim() || "Item";
-                const url = lines[i + 1]?.trim();
-                if (url && !url.startsWith('#')) {
-                    const groupMatch = lines[i].match(/group-title="([^"]+)"/i);
-                    const category = groupMatch ? groupMatch[1] : 'AUTRES';
-                    const logoMatch = lines[i].match(/tvg-logo="([^"]+)"/i);
-                    const logo = logoMatch ? logoMatch[1] : 'https://k.top4top.io/p_38425bcan1.png';
-                    list.push({ name, url, category, logo });
-                }
-            }
-        }
-        return list;
-    }
-
-    function renderCategories(containerId, dataList, activeCat, callback) {
-        const t = translations[currentLang] || translations.fr;
-        const favLabel = t.fav_cat;
-        const allLabel = t.all_cat;
-
-        const cats = [favLabel, allLabel, ...new Set(dataList.map(c => c.category))];
-        document.getElementById(containerId).innerHTML = cats.map(cat => `
-            <div class="category-row ${cat === activeCat ? 'active' : ''} ${cat === favLabel ? 'fav-cat' : ''}" tabindex="0" onclick="${callback.name}('${cat}')" onkeydown="if(event.key==='Enter') ${callback.name}('${cat}')">
-                <span>${cat}</span>
-            </div>
-        `).join('');
-    }
-
-    function selectCategory(cat) { currentCategory = cat; renderCategories('categories-container', cachedChannels, currentCategory, selectCategory); filterChannels(); }
-    function selectMovieCategory(cat) { currentMovieCategory = cat; renderCategories('movies-categories-container', cachedMovies, currentMovieCategory, selectMovieCategory); filterMovies(); }
-    function selectSeriesCategory(cat) { currentSeriesCategory = cat; renderCategories('series-categories-container', cachedSeries, currentSeriesCategory, selectSeriesCategory); filterSeries(); }
-
-    function filterChannels() {
-        const t = translations[currentLang] || translations.fr;
-        const q = document.getElementById('search-input').value.toLowerCase();
-        let filtered = cachedChannels;
-        if (currentCategory === t.fav_cat) filtered = cachedChannels.filter(c => isFav(c.url));
-        else if (currentCategory !== t.all_cat && currentCategory !== "TOUT") filtered = cachedChannels.filter(c => c.category === currentCategory);
-        filtered = filtered.filter(c => c.name.toLowerCase().includes(q));
-
-        document.getElementById('channels-container').innerHTML = filtered.map((c, idx) => `
-            <div class="channel-card" tabindex="0" onclick="playStream(this, '${c.url}', 'video_player', 'fullscreen-btn-live')" onkeydown="if(event.key==='Enter') playStream(this, '${c.url}', 'video_player', 'fullscreen-btn-live')">
-                <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                    <span style="color:var(--primary-color); font-weight:bold; margin-right:5px;">${idx + 1}</span>
-                    <span>${c.name}</span>
-                </div>
-                <i class="fas fa-star fav-btn ${isFav(c.url) ? 'active-fav' : ''}" tabindex="0" onclick="toggleFavorite(event, '${c.url}')" onkeydown="if(event.key==='Enter'){ toggleFavorite(event, '${c.url}'); }"></i>
-            </div>
-        `).join('');
-    }
-
-    function filterMovies() {
-        const t = translations[currentLang] || translations.fr;
-        const q = document.getElementById('movies-search-input').value.toLowerCase();
-        let filtered = cachedMovies;
-        if (currentMovieCategory === t.fav_cat) filtered = cachedMovies.filter(c => isFav(c.url));
-        else if (currentMovieCategory !== t.all_cat && currentMovieCategory !== "TOUT") filtered = cachedMovies.filter(c => c.category === currentMovieCategory);
-        filtered = filtered.filter(c => c.name.toLowerCase().includes(q));
-
-        document.getElementById('movies-container').innerHTML = filtered.map(c => `
-            <div class="media-poster-card" tabindex="0" onclick="playStream(this, '${c.url}', 'video_player_movies', 'fullscreen-btn-movies')" onkeydown="if(event.key==='Enter') playStream(this, '${c.url}', 'video_player_movies', 'fullscreen-btn-movies')">
-                <img src="${c.logo}" class="media-poster-img" alt="${c.name}" onerror="this.src='https://k.top4top.io/p_38425bcan1.png'">
-                <div class="media-poster-title">${c.name}</div>
-            </div>
-        `).join('');
-    }
-
-    function filterSeries() {
-        const t = translations[currentLang] || translations.fr;
-        const q = document.getElementById('series-search-input').value.toLowerCase();
-        let filtered = cachedSeries;
-        if (currentSeriesCategory === t.fav_cat) filtered = cachedSeries.filter(c => isFav(c.url));
-        else if (currentSeriesCategory !== t.all_cat && currentSeriesCategory !== "TOUT") filtered = cachedSeries.filter(c => c.category === currentSeriesCategory);
-        filtered = filtered.filter(c => c.name.toLowerCase().includes(q));
-
-        document.getElementById('series-container').innerHTML = filtered.map(c => `
-            <div class="media-poster-card" tabindex="0" onclick="playStream(this, '${c.url}', 'video_player_series', 'fullscreen-btn-series')" onkeydown="if(event.key==='Enter') playStream(this, '${c.url}', 'video_player_series', 'fullscreen-btn-series')">
-                <img src="${c.logo}" class="media-poster-img" alt="${c.name}" onerror="this.src='https://k.top4top.io/p_38425bcan1.png'">
-                <div class="media-poster-title">${c.name}</div>
-            </div>
-        `).join('');
-    }
-
-    function switchMainTab(tabName) {
-        stopAllVideos();
-        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
-
-        document.getElementById(`nav-${tabName}`).classList.add('active');
-        document.getElementById(`view-${tabName}`).classList.add('active-view');
-
-        currentSlideIndex = 0;
-    }
-
-    function stopAllVideos() {
-        ['video_player', 'video_player_movies', 'video_player_series'].forEach(vidId => {
-            const v = document.getElementById(vidId);
-            if (v) { v.pause(); v.removeAttribute('src'); v.load(); v.style.display = 'none'; }
-        });
-        ['fullscreen-btn-live', 'fullscreen-btn-movies', 'fullscreen-btn-series'].forEach(btnId => {
-            const btn = document.getElementById(btnId);
-            if (btn) btn.style.display = 'none';
-        });
-
-        if (current_player) { try { current_player.destroy(); } catch(e) {} current_player = null; }
-        if (hls_player) { try { hls_player.destroy(); } catch(e) {} hls_player = null; }
-    }
-
-    function playStream(el, url, videoPlayerId, fullscreenBtnId) {
-        const video = document.getElementById(videoPlayerId);
-        stopAllVideos();
-
-        document.querySelectorAll('.channel-card, .media-poster-card').forEach(c => c.classList.remove('active'));
-        if (el) el.classList.add('active');
-        
-        video.style.display = 'block';
-        document.getElementById(fullscreenBtnId).style.display = 'block';
-
-        if (url.includes('.m3u8')) {
-            if (Hls.isSupported()) {
-                hls_player = new Hls();
-                hls_player.loadSource(url);
-                hls_player.attachMedia(video);
-                hls_player.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(e => {}));
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
-                video.addEventListener('loadedmetadata', () => video.play().catch(e => {}));
-            }
-        } else if (url.includes('.ts') && mpegts.getFeatureList().mseLivePlayback) {
-            current_player = mpegts.createPlayer({ type: 'mse', isLive: true, url: url });
-            current_player.attachMediaElement(video);
-            current_player.load();
-            current_player.play().catch(e => {});
-        } else {
-            video.src = url;
-            video.play().catch(e => {});
-        }
-    }
-
-    function toggleFullscreen() {
-        const activeView = document.querySelector('.view-section.active-view');
-        if (!activeView) return;
-        const video = activeView.querySelector('video');
-        if (!video) return;
-
-        if (!document.fullscreenElement) {
-            if (video.requestFullscreen) video.requestFullscreen();
-            else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
-        } else {
-            if (document.exitFullscreen) document.exitFullscreen();
-        }
-    }
-</script>
-</body>
-</html>
